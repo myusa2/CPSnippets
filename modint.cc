@@ -20,16 +20,21 @@
 #include <array>
 #include <bitset>
 #include <cstdlib>
+#include <complex>
 
 using int64 = long long;
 using uint64 = unsigned long long;
 
 using namespace std;
 
-template <uint64 M>
+using F = tuple<int64, int64>;  // (分子, 分母)
+
+#define uint64 int64
+
+template <int64 M>
 struct ModInt {
-    uint64 n;
-    constexpr ModInt(const uint64 n = 0) noexcept : n(n) {}
+    int64 n;
+    constexpr ModInt(const int64 n = 0) noexcept : n(n % M) {}
     constexpr ModInt operator+(const ModInt rhs) const noexcept {
         return ModInt(*this) += rhs;
     }
@@ -44,14 +49,14 @@ struct ModInt {
     }
     constexpr ModInt& operator+=(const ModInt rhs) noexcept {
         n += rhs.n;
-        if (n >= M) {
+        while (n >= M) {
             n -= M;
         }
         return *this;
     }
     constexpr ModInt& operator-=(const ModInt rhs) noexcept {
         n -= rhs.n;
-        if (n < 0) {
+        while (n < 0) {
             n += M;
         }
         return *this;
@@ -61,7 +66,7 @@ struct ModInt {
         return *this;
     }
     constexpr ModInt& operator/=(ModInt rhs) noexcept {
-        int a = M - 2;
+        int64 a = M - 2;
         while (a) {
             if (a % 2) {
                 *this *= rhs;
@@ -73,71 +78,84 @@ struct ModInt {
     }
 };
 
-constexpr uint64 MOD = 1e9 + 7;
-constexpr int MAX_N = 200000;
-
-vector<int> tree[MAX_N];
-ModInt<MOD> fact[MAX_N], dp1[MAX_N], dp2[MAX_N];
-int tree_size[MAX_N];
-
-void firstDFS(int r, int p) {
-    tree_size[r] = 1;
-    dp1[r] = 1;
-    for (int c : tree[r]) {
-        if (c == p) continue;
-
-        firstDFS(c, r);
-        tree_size[r] += tree_size[c];
-        dp1[r] *= dp1[c] / fact[tree_size[c]];
-    }
-    dp1[r] *= fact[tree_size[r] - 1];
+int64 GCD(int64 a, int64 b) {
+    if (b == 0) return a;
+    return GCD(b, a % b);
 }
 
-void secondDFS(int r, int p, ModInt<MOD> value) {
-    int n = tree_size[0];
-    dp2[r] = fact[n - 1];
-    for (int c : tree[r]) {
-        if (c == p) {
-            dp2[r] *= value / fact[n - tree_size[r]];
-            continue;
-        }
-        dp2[r] *= dp1[c] / fact[tree_size[c]];
-    }
+F reduce(F f) {
+    int64 bunbo, bunshi;
+    tie(bunshi, bunbo) = f;
 
-    for (int c : tree[r]) {
-        if (c == p) continue;
-        secondDFS(c, r, dp2[r] * fact[tree_size[c]] * fact[n - 1 - tree_size[c]] /
-                                 (dp1[c] * fact[n - 1]));
+    if (bunshi == 0) {
+        return F(0, 1);
+    }
+    int64 g = GCD(abs(bunshi), abs(bunbo));
+    bunshi /= g;
+    bunbo /= g;
+    if (bunbo < 0) {
+        bunshi *= -1;
+        bunbo *= -1;
+    }
+    return F(bunshi, bunbo);
+}
+
+constexpr int64 MOD = 1e9 + 7;
+
+template <int64 M>
+ModInt<M> powMod(ModInt<M> n, int64 a) {
+    if (a == 0) return 1;
+    if (a & 1) {
+        return powMod<M>(n, a - 1) * n;
+    } else {
+        auto b = powMod<M>(n, a / 2);
+        return b * b;
     }
 }
 
 int main() {
     cin.tie(nullptr);
     ios::sync_with_stdio(false);
+    cout << fixed << setprecision(10);
 
     int n;
     cin >> n;
 
-    for (int i = 0; i < n - 1; i++) {
-        int a, b;
-        cin >> a >> b;
-        a--;
-        b--;
-        tree[a].push_back(b);
-        tree[b].push_back(a);
-    }
-
-    fact[0] = 1;
-    for (int num = 1; num < n; num++) {
-        fact[num] = fact[num - 1] * num;
-    }
-
-    firstDFS(0, -1);
-    secondDFS(0, -1, 1);
-
+    int64 num_a_is_zero = 0,
+          num_b_is_zero = 0,
+          num_both_zero = 0;
+    map<F, int64> counter;
     for (int i = 0; i < n; i++) {
-        cout << dp2[i].n << endl;
+        int64 a, b;
+        cin >> a >> b;
+
+        if (a == 0 && b == 0) {
+            num_both_zero++;
+            continue;
+        }
+        if (a == 0) num_a_is_zero++;
+        if (b == 0) num_b_is_zero++;
+        if (a != 0 && b != 0) {
+            counter[reduce(F(a, b))]++;
+        }
     }
+    ModInt<MOD> ans = (powMod<MOD>(2, num_a_is_zero) +
+                       powMod<MOD>(2, num_b_is_zero) - 1);
+
+    set<F> S;
+    for (auto& mp : counter) {
+        auto f = mp.first;
+        auto f2 = reduce(F(-get<1>(f), get<0>(f)));
+        if (S.count(f) || S.count(f2)) continue;
+
+        int64 cnt1 = counter.count(f) ? counter[f] : 0,
+                cnt2 = counter.count(f2) ? counter[f2] : 0;
+        ans *= (powMod<MOD>(2LL, cnt1) +
+                powMod<MOD>(2LL, cnt2) - 1);
+        S.insert(f);
+        S.insert(f2);
+    }
+    cout << (ans - 1 + num_both_zero).n << endl;
 
     return 0;
 }
