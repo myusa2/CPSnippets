@@ -66,15 +66,20 @@ struct ModInt {
         return *this;
     }
     constexpr ModInt& operator/=(ModInt rhs) noexcept {
-        int64 a = M - 2;
-        while (a) {
-            if (a % 2) {
-                *this *= rhs;
-            }
-            rhs *= rhs;
-            a /= 2;
-        }
+        *this *= pow(rhs, M - 2);
         return *this;
+    }
+
+    static ModInt pow(ModInt a, int64 n) {
+        ModInt res = 1;
+        while (n) {
+            if (n % 2) {
+                res *= a;
+            }
+            a *= a;
+            n /= 2;
+        }
+        return res;
     }
 };
 
@@ -102,17 +107,6 @@ F reduce(F f) {
 
 constexpr int64 MOD = 1e9 + 7;
 
-template <int64 M>
-ModInt<M> powMod(ModInt<M> n, int64 a) {
-    if (a == 0) return 1;
-    if (a & 1) {
-        return powMod<M>(n, a - 1) * n;
-    } else {
-        auto b = powMod<M>(n, a / 2);
-        return b * b;
-    }
-}
-
 int main() {
     cin.tie(nullptr);
     ios::sync_with_stdio(false);
@@ -139,8 +133,8 @@ int main() {
             counter[reduce(F(a, b))]++;
         }
     }
-    ModInt<MOD> ans = (powMod<MOD>(2, num_a_is_zero) +
-                       powMod<MOD>(2, num_b_is_zero) - 1);
+    auto ans = (ModInt<MOD>::pow(2, num_a_is_zero) +
+                ModInt<MOD>::pow(2, num_b_is_zero) - 1);
 
     set<F> S;
     for (auto& mp : counter) {
@@ -150,8 +144,8 @@ int main() {
 
         int64 cnt1 = counter.count(f) ? counter[f] : 0,
                 cnt2 = counter.count(f2) ? counter[f2] : 0;
-        ans *= (powMod<MOD>(2LL, cnt1) +
-                powMod<MOD>(2LL, cnt2) - 1);
+        ans *= (ModInt<MOD>::pow(2, cnt1) +
+                ModInt<MOD>::pow(2, cnt2) - 1);
         S.insert(f);
         S.insert(f2);
     }
