@@ -20,16 +20,19 @@
 #include <array>
 #include <bitset>
 #include <cstdlib>
+#include <complex>
 
 using int64 = long long;
 using uint64 = unsigned long long;
 
 using namespace std;
 
-template <uint64 M>
+constexpr int64 MOD = 1e9 + 7;
+
+template <int64 M>
 struct ModInt {
-    uint64 n;
-    constexpr ModInt(const uint64 n = 0) noexcept : n(n) {}
+    int64 n;
+    constexpr ModInt(const int64 n = 0) noexcept : n(n % M) {}
     constexpr ModInt operator+(const ModInt rhs) const noexcept {
         return ModInt(*this) += rhs;
     }
@@ -42,21 +45,16 @@ struct ModInt {
     constexpr ModInt operator/(const ModInt rhs) const noexcept {
         return ModInt(*this) /= rhs;
     }
-
-    constexpr ModInt inv() const noexcept {
-        return ModInt(1) /= *this;
-    }
-
     constexpr ModInt& operator+=(const ModInt rhs) noexcept {
         n += rhs.n;
-        if (n >= M) {
+        while (n >= M) {
             n -= M;
         }
         return *this;
     }
     constexpr ModInt& operator-=(const ModInt rhs) noexcept {
         n -= rhs.n;
-        if (n < 0) {
+        while (n < 0) {
             n += M;
         }
         return *this;
@@ -66,67 +64,72 @@ struct ModInt {
         return *this;
     }
     constexpr ModInt& operator/=(ModInt rhs) noexcept {
-        int a = M - 2;
-        while (a) {
-            if (a % 2) {
-                *this *= rhs;
-            }
-            rhs *= rhs;
-            a /= 2;
-        }
+        *this *= pow(rhs, M - 2);
         return *this;
     }
-};
-
-template <uint64 M>
-struct Combination {
-    vector<ModInt<M>> fact;
-    vector<ModInt<M>> inv_fact;
-    
-    Combination(int max_n): fact(max_n + 1), inv_fact(max_n + 1) {
-        fact[0] = 1;
-        for (int i = 1; i <= max_n; i++) {
-            fact[i] = fact[i - 1] * i;
-        }
-        inv_fact[max_n] = fact[max_n].inv();
-        for (int i = max_n - 1; i >= 0; i--) {
-            inv_fact[i] = inv_fact[i + 1] * (i + 1);
-        }
+    constexpr ModInt inv() const noexcept {
+        return pow(*this, M - 2);
     }
 
-    ModInt<M> choose(int m, int n) {
-        if (m < 0 || m < n) return 0;
-        // m! / n! / (m - n)!
-        return fact[m] * inv_fact[n] * inv_fact[m - n];
+    static ModInt pow(ModInt a, int64 n) {
+        ModInt res = 1;
+        while (n) {
+            if (n % 2) {
+                res *= a;
+            }
+            a *= a;
+            n /= 2;
+        }
+        return res;
     }
 };
 
-// a^n mod M を計算
-template <uint64 M>
-ModInt<M> pow(ModInt<M> a, int n) {
-    if (n == 0) return 1;
-    if (n % 2 == 0) {
-        auto b = pow(a, n / 2);
-        return b * b;
+namespace CombUtil {
+
+constexpr int64 M = MOD;
+
+vector<ModInt<M>> fact;
+vector<ModInt<M>> inv_fact;
+
+static void setup(int max_n) {
+    fact.resize(max_n + 1);
+    inv_fact.resize(max_n + 1);
+
+    fact[0] = 1;
+    for (int n = 1; n <= max_n; n++) {
+        fact[n] = fact[n - 1] * n;
     }
-    return a * pow(a, n - 1);
+
+    inv_fact[max_n] = fact[max_n].inv();
+    for (int n = max_n - 1; n >= 0; n--) {
+        inv_fact[n] = inv_fact[n + 1] * (n + 1);
+    }
 }
 
-constexpr uint64 MOD = 998244353;
+ModInt<M> choose(int m, int n) {
+    if (m < n) return 0;
+    return fact[m] * inv_fact[m - n] * inv_fact[n];
+}
+
+};  // namespace CombUtil
+
+namespace CU = CombUtil;
+
+ModInt<CU::M> cumsum(int r, int c) {
+    return CU::choose(r + c + 2, r + 1) - CU::choose(r, 0);
+}
 
 int main() {
     cin.tie(nullptr);
     ios::sync_with_stdio(false);
+    cout << fixed << setprecision(10);
 
-    int n, m, k;
-    cin >> n >> m >> k;
+    int r1, c1, r2, c2;
+    cin >> r1 >> c1 >> r2 >> c2;
 
-    Combination<MOD> comb(n);
-    // x: 隣り合う組の数
-    ModInt<MOD> ans = 0;
-    for (int x = 0; x <= k; x++) {
-        ans += pow<MOD>(m - 1, n - x - 1) * m * comb.choose(n - 1, x);
-    }
+    CU::setup(r2 + c2 + 2);
+
+    auto ans = cumsum(r2, c2) - cumsum(r1 - 1, c2) - cumsum(r2, c1 - 1) + cumsum(r1 - 1, c1 - 1);
     cout << ans.n << endl;
 
     return 0;

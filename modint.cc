@@ -27,9 +27,7 @@ using uint64 = unsigned long long;
 
 using namespace std;
 
-using F = tuple<int64, int64>;  // (分子, 分母)
-
-#define uint64 int64
+constexpr int64 MOD = 1e9 + 7;
 
 template <int64 M>
 struct ModInt {
@@ -69,6 +67,9 @@ struct ModInt {
         *this *= pow(rhs, M - 2);
         return *this;
     }
+    constexpr ModInt inv() const noexcept {
+        return pow(*this, M - 2);
+    }
 
     static ModInt pow(ModInt a, int64 n) {
         ModInt res = 1;
@@ -83,73 +84,53 @@ struct ModInt {
     }
 };
 
-int64 GCD(int64 a, int64 b) {
-    if (b == 0) return a;
-    return GCD(b, a % b);
+namespace CombUtil {
+
+constexpr int64 M = MOD;
+
+vector<ModInt<M>> fact;
+vector<ModInt<M>> inv_fact;
+
+static void setup(int max_n) {
+    fact.resize(max_n + 1);
+    inv_fact.resize(max_n + 1);
+
+    fact[0] = 1;
+    for (int n = 1; n <= max_n; n++) {
+        fact[n] = fact[n - 1] * n;
+    }
+
+    inv_fact[max_n] = fact[max_n].inv();
+    for (int n = max_n - 1; n >= 0; n--) {
+        inv_fact[n] = inv_fact[n + 1] * (n + 1);
+    }
 }
 
-F reduce(F f) {
-    int64 bunbo, bunshi;
-    tie(bunshi, bunbo) = f;
-
-    if (bunshi == 0) {
-        return F(0, 1);
-    }
-    int64 g = GCD(abs(bunshi), abs(bunbo));
-    bunshi /= g;
-    bunbo /= g;
-    if (bunbo < 0) {
-        bunshi *= -1;
-        bunbo *= -1;
-    }
-    return F(bunshi, bunbo);
+ModInt<M> choose(int m, int n) {
+    if (m < n) return 0;
+    return fact[m] * inv_fact[m - n] * inv_fact[n];
 }
 
-constexpr int64 MOD = 1e9 + 7;
+};  // namespace CombUtil
+
+namespace CU = CombUtil;
+
+ModInt<CU::M> cumsum(int r, int c) {
+    return CU::choose(r + c + 2, r + 1) - CU::choose(r, 0);
+}
 
 int main() {
     cin.tie(nullptr);
     ios::sync_with_stdio(false);
     cout << fixed << setprecision(10);
 
-    int n;
-    cin >> n;
+    int r1, c1, r2, c2;
+    cin >> r1 >> c1 >> r2 >> c2;
 
-    int64 num_a_is_zero = 0,
-          num_b_is_zero = 0,
-          num_both_zero = 0;
-    map<F, int64> counter;
-    for (int i = 0; i < n; i++) {
-        int64 a, b;
-        cin >> a >> b;
+    CU::setup(r2 + c2 + 2);
 
-        if (a == 0 && b == 0) {
-            num_both_zero++;
-            continue;
-        }
-        if (a == 0) num_a_is_zero++;
-        if (b == 0) num_b_is_zero++;
-        if (a != 0 && b != 0) {
-            counter[reduce(F(a, b))]++;
-        }
-    }
-    auto ans = (ModInt<MOD>::pow(2, num_a_is_zero) +
-                ModInt<MOD>::pow(2, num_b_is_zero) - 1);
-
-    set<F> S;
-    for (auto& mp : counter) {
-        auto f = mp.first;
-        auto f2 = reduce(F(-get<1>(f), get<0>(f)));
-        if (S.count(f) || S.count(f2)) continue;
-
-        int64 cnt1 = counter.count(f) ? counter[f] : 0,
-                cnt2 = counter.count(f2) ? counter[f2] : 0;
-        ans *= (ModInt<MOD>::pow(2, cnt1) +
-                ModInt<MOD>::pow(2, cnt2) - 1);
-        S.insert(f);
-        S.insert(f2);
-    }
-    cout << (ans - 1 + num_both_zero).n << endl;
+    auto ans = cumsum(r2, c2) - cumsum(r1 - 1, c2) - cumsum(r2, c1 - 1) + cumsum(r1 - 1, c1 - 1);
+    cout << ans.n << endl;
 
     return 0;
 }
